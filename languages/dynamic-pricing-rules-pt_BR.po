@@ -1,0 +1,219 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Store Dynamic Pricing 0.1.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-30 00:00+0000\n"
+"PO-Revision-Date: 2026-06-30 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Portuguese (Brazil)\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: ChatGPT\n"
+"X-Domain: dynamic-pricing-rules\n"
+
+#: dynamic-pricing-rules.php:137
+msgid "You do not have permission to manage dynamic pricing."
+msgstr "Você não tem permissão para gerenciar a precificação dinâmica."
+
+#: dynamic-pricing-rules.php:148
+msgid "Create quantity discounts, target specific products or categories, and optionally run buy X get Y offers."
+msgstr "Crie descontos por quantidade, aplique a produtos ou categorias específicos e, opcionalmente, execute ofertas Compre X, leve Y."
+
+#: dynamic-pricing-rules.php:156
+msgid "Quantity Discount"
+msgstr "Desconto por quantidade"
+
+#: dynamic-pricing-rules.php:161
+msgid "Enable quantity discount"
+msgstr "Ativar desconto por quantidade"
+
+#: dynamic-pricing-rules.php:169
+msgid "Discount label"
+msgstr "Rótulo do desconto"
+
+#: dynamic-pricing-rules.php:173 dynamic-pricing-rules.php:226
+msgid "Checkout label"
+msgstr "Rótulo no checkout"
+
+#: dynamic-pricing-rules.php:176
+msgid "This is the text before the colon at cart and checkout, for example Discount."
+msgstr "Este é o texto antes dos dois-pontos no carrinho e no checkout, por exemplo, Desconto."
+
+#: dynamic-pricing-rules.php:180 dynamic-pricing-rules.php:243
+msgid "Apply to"
+msgstr "Aplicar a"
+
+#: dynamic-pricing-rules.php:183
+msgid "Choose Specific products to set a discount for one product or selected products."
+msgstr "Escolha Produtos específicos para definir um desconto para um ou mais produtos selecionados."
+
+#: dynamic-pricing-rules.php:187 dynamic-pricing-rules.php:247 dynamic-pricing-rules.php:281
+msgid "Specific products"
+msgstr "Produtos específicos"
+
+#: dynamic-pricing-rules.php:191 dynamic-pricing-rules.php:251 dynamic-pricing-rules.php:282
+msgid "Specific categories"
+msgstr "Categorias específicas"
+
+#: dynamic-pricing-rules.php:195 dynamic-pricing-rules.php:255
+msgid "Count quantity by"
+msgstr "Contar quantidade por"
+
+#: dynamic-pricing-rules.php:199
+msgid "Discount tiers"
+msgstr "Faixas de desconto"
+
+#: dynamic-pricing-rules.php:202
+msgid "Leave Max empty for open-ended tiers like 6+ items."
+msgstr "Deixe Máx. vazio para faixas sem limite, como 6+ itens."
+
+#: dynamic-pricing-rules.php:209
+msgid "Buy X, Get Y Free"
+msgstr "Compre X, leve Y grátis"
+
+#: dynamic-pricing-rules.php:214
+msgid "Enable buy X, get Y free"
+msgstr "Ativar Compre X, leve Y grátis"
+
+#: dynamic-pricing-rules.php:222
+msgid "Offer label"
+msgstr "Rótulo da oferta"
+
+#: dynamic-pricing-rules.php:229
+msgid "Reserved for cart item display if this offer is shown beside products."
+msgstr "Reservado para a exibição do item no carrinho caso esta oferta seja mostrada junto aos produtos."
+
+#: dynamic-pricing-rules.php:233
+msgid "Offer"
+msgstr "Oferta"
+
+#: dynamic-pricing-rules.php:235
+msgid "Buy"
+msgstr "Compre"
+
+#: dynamic-pricing-rules.php:237
+msgid "get"
+msgstr "leve"
+
+#: dynamic-pricing-rules.php:239
+msgid "free"
+msgstr "grátis"
+
+#: dynamic-pricing-rules.php:262
+msgid "Save pricing rules"
+msgstr "Salvar regras de preço"
+
+#: dynamic-pricing-rules.php:280
+msgid "All products"
+msgstr "Todos os produtos"
+
+#: dynamic-pricing-rules.php:3
+msgid "Store Dynamic Pricing"
+msgstr "Precificação Dinâmica da Loja"
+
+#: dynamic-pricing-rules.php:301
+msgid "Each cart line"
+msgstr "Cada linha do carrinho"
+
+#: dynamic-pricing-rules.php:302
+msgid "Same product together"
+msgstr "Mesmo produto somado"
+
+#: dynamic-pricing-rules.php:303
+msgid "Selected category together"
+msgstr "Categoria selecionada somada"
+
+#: dynamic-pricing-rules.php:304
+msgid "Whole cart"
+msgstr "Carrinho inteiro"
+
+#: dynamic-pricing-rules.php:326
+msgid "Search for a product..."
+msgstr "Pesquisar um produto..."
+
+#: dynamic-pricing-rules.php:344
+msgid "Use this when Apply to is set to Specific products."
+msgstr "Use isto quando Aplicar a estiver definido como Produtos específicos."
+
+#: dynamic-pricing-rules.php:361
+msgid "Choose categories..."
+msgstr "Escolher categorias..."
+
+#: dynamic-pricing-rules.php:376
+msgid "Use this when Apply to is set to Specific categories."
+msgstr "Use isto quando Aplicar a estiver definido como Categorias específicas."
+
+#: dynamic-pricing-rules.php:393
+msgid "Min qty"
+msgstr "Qtd. mín."
+
+#: dynamic-pricing-rules.php:394
+msgid "Max qty"
+msgstr "Qtd. máx."
+
+#: dynamic-pricing-rules.php:395
+msgid "Discount type"
+msgstr "Tipo de desconto"
+
+#: dynamic-pricing-rules.php:396
+msgid "Amount"
+msgstr "Valor"
+
+#: dynamic-pricing-rules.php:4
+msgid "Adds WooCommerce quantity tiers, product/category bulk discounts, and buy X get Y offers."
+msgstr "Adiciona faixas de quantidade no WooCommerce, descontos em massa por produto/categoria e ofertas Compre X, leve Y."
+
+#: dynamic-pricing-rules.php:404
+msgid "Fixed amount off"
+msgstr "Valor fixo de desconto"
+
+#: dynamic-pricing-rules.php:404
+msgid "Fixed item price"
+msgstr "Preço fixo do item"
+
+#: dynamic-pricing-rules.php:404
+msgid "Percent off"
+msgstr "Percentual de desconto"
+
+#: dynamic-pricing-rules.php:425
+msgid "Pricing rules were not saved because the JSON is invalid."
+msgstr "As regras de preço não foram salvas porque o JSON é inválido."
+
+#: dynamic-pricing-rules.php:442
+msgid "Pricing rules must be a JSON array."
+msgstr "As regras de preço devem ser uma matriz JSON."
+
+#: dynamic-pricing-rules.php:463
+msgid "Pricing rules saved."
+msgstr "Regras de preço salvas."
+
+#: dynamic-pricing-rules.php:596 dynamic-pricing-rules.php:611 dynamic-pricing-rules.php:615 dynamic-pricing-rules.php:730 dynamic-pricing-rules.php:742 dynamic-pricing-rules.php:946 dynamic-pricing-rules.php:977
+msgid "Discount"
+msgstr "Desconto"
+
+#: dynamic-pricing-rules.php:626
+msgid "Store Dynamic Pricing is active, but WooCommerce is not available. Activate WooCommerce to apply pricing rules."
+msgstr "Store Dynamic Pricing está ativo, mas o WooCommerce não está disponível. Ative o WooCommerce para aplicar as regras de preço."
+
+#: dynamic-pricing-rules.php:63 dynamic-pricing-rules.php:64 dynamic-pricing-rules.php:145
+msgid "Dynamic Pricing"
+msgstr "Precificação dinâmica"
+
+#: dynamic-pricing-rules.php:729 dynamic-pricing-rules.php:738
+msgid "Dynamic pricing discount"
+msgstr "Desconto de precificação dinâmica"
+
+#: dynamic-pricing-rules.php:90
+msgid "Settings"
+msgstr "Configurações"
+
+#: dynamic-pricing-rules.php:945
+msgid "Quantity discount"
+msgstr "Desconto por quantidade"
+
+#: dynamic-pricing-rules.php:976
+msgid "Buy 2, get 1 free"
+msgstr "Compre 2, leve 1 grátis"
