@@ -26,16 +26,21 @@ It also includes a saved but disabled `Buy 2, get 1 free` rule. Enable it from W
 ## Admin setup
 
 1. Go to WooCommerce -> Dynamic Pricing.
-2. Enable Quantity Discount.
-3. Set Apply to:
+2. Use Add rule for each separate discount or offer.
+3. Choose the rule type:
+   - Quantity discount
+   - Buy X, get Y free
+4. Set Apply to:
    - All products
    - Specific products
    - Specific categories
-4. For a product-specific discount, choose Specific products and search for the product.
-5. Edit Discount label to change the text after the colon at cart/checkout.
-6. Edit Checkout label to change the text before the colon at cart/checkout.
-7. Fill the discount tiers.
-8. Save pricing rules.
+5. For a product-specific discount, choose Specific products and search for the product.
+6. Edit Discount label to change the text after the colon at cart/checkout.
+7. Edit Checkout label to change the text before the colon at cart/checkout.
+8. Fill the discount tiers or buy/get offer fields.
+9. Save pricing rules.
+
+You can remove a rule with Remove rule. Removed rules are not saved on the next submit.
 
 To discount one specific product by 10% when customers buy 2 or more:
 

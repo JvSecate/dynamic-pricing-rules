@@ -104,28 +104,51 @@ final class Store_Dynamic_Pricing {
 
         wp_add_inline_style(
             'woocommerce_admin_styles',
-            '.dpr-settings-grid{display:grid;gap:18px;max-width:1120px}.dpr-card{background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:18px 20px}.dpr-card h2{margin:0 0 12px}.dpr-card table.form-table{margin-top:0}.dpr-card .form-table th{width:210px}.dpr-card input.regular-text{width:420px;max-width:100%}.dpr-tiers{border-collapse:collapse;width:100%;max-width:780px;margin-top:8px}.dpr-tiers th,.dpr-tiers td{border:1px solid #dcdcde;padding:8px;text-align:left;vertical-align:middle}.dpr-tiers th{background:#f6f7f7}.dpr-tiers input.small-text{width:88px}.dpr-field-note{color:#646970;margin-top:6px}.dpr-rule-toggle{margin:0 0 12px}.dpr-product-select,.dpr-card .select2-container,.dpr-card .selectWoo-container{width:420px!important;max-width:100%!important}.dpr-scope-row.is-hidden{display:none}.dpr-inline-number{width:74px!important}'
+            '.dpr-settings-grid{display:grid;gap:18px;max-width:1120px}.dpr-card{background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:18px 20px}.dpr-card-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}.dpr-card h2{margin:0}.dpr-card table.form-table{margin-top:0}.dpr-card .form-table th{width:210px}.dpr-card input.regular-text{width:420px;max-width:100%}.dpr-tiers{border-collapse:collapse;width:100%;max-width:780px;margin-top:8px}.dpr-tiers th,.dpr-tiers td{border:1px solid #dcdcde;padding:8px;text-align:left;vertical-align:middle}.dpr-tiers th{background:#f6f7f7}.dpr-tiers input.small-text{width:88px}.dpr-field-note{color:#646970;margin-top:6px}.dpr-rule-toggle{margin:0 0 12px}.dpr-product-select,.dpr-card .select2-container,.dpr-card .selectWoo-container{width:420px!important;max-width:100%!important}.dpr-scope-row.is-hidden,.dpr-type-section.is-hidden{display:none}.dpr-inline-number{width:74px!important}.dpr-actions{margin-top:18px}.dpr-template{display:none}'
         );
 
         $admin_js = <<<'JS'
 jQuery(function($) {
     $(document.body).trigger('wc-enhanced-select-init');
 
-    function updateDprScopes() {
-        var pairs = [
-            ['#dpr_quantity_scope', 'quantity'],
-            ['#dpr_buy_get_scope', 'buy-get']
-        ];
+    function updateRuleCard($card) {
+        var type = $card.find('.dpr-rule-type').val();
+        var scope = $card.find('.dpr-rule-scope').val();
 
-        pairs.forEach(function(pair) {
-            var scope = $(pair[0]).val();
-            $('.dpr-scope-row[data-rule="' + pair[1] + '"]').addClass('is-hidden');
-            $('.dpr-scope-row[data-rule="' + pair[1] + '"][data-scope="' + scope + '"]').removeClass('is-hidden');
+        $card.find('.dpr-type-section').addClass('is-hidden');
+        $card.find('.dpr-type-section[data-type="' + type + '"]').removeClass('is-hidden');
+        $card.find('.dpr-scope-row').addClass('is-hidden');
+        $card.find('.dpr-scope-row[data-scope="' + scope + '"]').removeClass('is-hidden');
+    }
+
+    function updateAllRuleCards() {
+        $('.dpr-card[data-rule-card]').each(function() {
+            updateRuleCard($(this));
         });
     }
 
-    $(document).on('change', '#dpr_quantity_scope,#dpr_buy_get_scope', updateDprScopes);
-    updateDprScopes();
+    $(document).on('change', '.dpr-rule-type,.dpr-rule-scope', function() {
+        updateRuleCard($(this).closest('[data-rule-card]'));
+    });
+
+    $(document).on('click', '.dpr-remove-rule', function(e) {
+        e.preventDefault();
+        $(this).closest('[data-rule-card]').remove();
+    });
+
+    $(document).on('click', '#dpr_add_rule', function(e) {
+        e.preventDefault();
+
+        var index = Date.now().toString();
+        var html = $('#dpr_rule_template').html().replace(/__INDEX__/g, index);
+        var $card = $(html);
+
+        $('#dpr_rules').append($card);
+        $(document.body).trigger('wc-enhanced-select-init');
+        updateRuleCard($card);
+    });
+
+    updateAllRuleCards();
 });
 JS;
 
@@ -138,129 +161,135 @@ JS;
         }
 
         $rules = $this->get_rules(false);
-        $quantity_rule = $this->first_rule_by_type($rules, 'quantity_tier') ?: $this->normalize_rule(self::default_rules()[0]);
-        $buy_get_rule = $this->first_rule_by_type($rules, 'buy_x_get_y') ?: $this->normalize_rule(self::default_rules()[1]);
+        $template_rule = $this->normalize_rule(
+            [
+                'id' => 'rule-__INDEX__',
+                'enabled' => true,
+                'type' => 'quantity_tier',
+                'label' => __('Quantity discount', 'dynamic-pricing-rules'),
+                'display_title' => __('Discount', 'dynamic-pricing-rules'),
+                'scope' => 'all',
+                'quantity_mode' => 'line',
+                'tiers' => [
+                    [
+                        'min' => 2,
+                        'max' => 0,
+                        'discount_type' => 'percent',
+                        'amount' => 10,
+                    ],
+                ],
+            ]
+        );
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Dynamic Pricing', 'dynamic-pricing-rules'); ?></h1>
             <?php settings_errors('store_dynamic_pricing'); ?>
             <p>
-                <?php esc_html_e('Create quantity discounts, target specific products or categories, and optionally run buy X get Y offers.', 'dynamic-pricing-rules'); ?>
+                <?php esc_html_e('Create as many product, category, quantity, and buy X get Y rules as you need.', 'dynamic-pricing-rules'); ?>
             </p>
 
             <form method="post" action="options.php">
                 <?php settings_fields('store_dynamic_pricing'); ?>
+                <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[_empty]" value="1">
 
-                <div class="dpr-settings-grid">
-                    <div class="dpr-card">
-                        <h2><?php esc_html_e('Quantity Discount', 'dynamic-pricing-rules'); ?></h2>
-                        <p class="dpr-rule-toggle">
-                            <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[0][enabled]" value="0">
-                            <label>
-                                <input type="checkbox" name="<?php echo esc_attr(self::OPTION_RULES); ?>[0][enabled]" value="1" <?php checked(!empty($quantity_rule['enabled'])); ?>>
-                                <?php esc_html_e('Enable quantity discount', 'dynamic-pricing-rules'); ?>
-                            </label>
-                        </p>
-                        <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[0][id]" value="<?php echo esc_attr($quantity_rule['id']); ?>">
-                        <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[0][type]" value="quantity_tier">
+                <div id="dpr_rules" class="dpr-settings-grid">
+                    <?php foreach (array_values($rules) as $index => $rule) : ?>
+                        <?php $this->render_rule_card($rule, (string) $index); ?>
+                    <?php endforeach; ?>
+                </div>
 
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="dpr_quantity_label"><?php esc_html_e('Discount label', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><input type="text" class="regular-text" id="dpr_quantity_label" name="<?php echo esc_attr(self::OPTION_RULES); ?>[0][label]" value="<?php echo esc_attr($quantity_rule['label']); ?>"></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="dpr_quantity_display_title"><?php esc_html_e('Checkout label', 'dynamic-pricing-rules'); ?></label></th>
-                                <td>
-                                    <input type="text" class="regular-text" id="dpr_quantity_display_title" name="<?php echo esc_attr(self::OPTION_RULES); ?>[0][display_title]" value="<?php echo esc_attr($quantity_rule['display_title']); ?>">
-                                    <p class="dpr-field-note"><?php esc_html_e('This is the text before the colon at cart and checkout, for example Discount.', 'dynamic-pricing-rules'); ?></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="dpr_quantity_scope"><?php esc_html_e('Apply to', 'dynamic-pricing-rules'); ?></label></th>
-                                <td>
-                                    <?php $this->render_scope_select('dpr_quantity_scope', self::OPTION_RULES . '[0][scope]', $quantity_rule['scope']); ?>
-                                    <p class="dpr-field-note"><?php esc_html_e('Choose Specific products to set a discount for one product or selected products.', 'dynamic-pricing-rules'); ?></p>
-                                </td>
-                            </tr>
-                            <tr class="dpr-scope-row" data-rule="quantity" data-scope="product">
-                                <th scope="row"><label for="dpr_quantity_products"><?php esc_html_e('Specific products', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><?php $this->render_product_search('dpr_quantity_products', self::OPTION_RULES . '[0][product_ids][]', $quantity_rule['product_ids']); ?></td>
-                            </tr>
-                            <tr class="dpr-scope-row" data-rule="quantity" data-scope="category">
-                                <th scope="row"><label for="dpr_quantity_categories"><?php esc_html_e('Specific categories', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><?php $this->render_category_select('dpr_quantity_categories', self::OPTION_RULES . '[0][category_ids][]', $quantity_rule['category_ids']); ?></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="dpr_quantity_mode"><?php esc_html_e('Count quantity by', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><?php $this->render_quantity_mode_select('dpr_quantity_mode', self::OPTION_RULES . '[0][quantity_mode]', $quantity_rule['quantity_mode']); ?></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><?php esc_html_e('Discount tiers', 'dynamic-pricing-rules'); ?></th>
-                                <td>
-                                    <?php $this->render_tiers_table(self::OPTION_RULES . '[0][tiers]', $quantity_rule['tiers']); ?>
-                                    <p class="dpr-field-note"><?php esc_html_e('Leave Max empty for open-ended tiers like 6+ items.', 'dynamic-pricing-rules'); ?></p>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <div class="dpr-card">
-                        <h2><?php esc_html_e('Buy X, Get Y Free', 'dynamic-pricing-rules'); ?></h2>
-                        <p class="dpr-rule-toggle">
-                            <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[1][enabled]" value="0">
-                            <label>
-                                <input type="checkbox" name="<?php echo esc_attr(self::OPTION_RULES); ?>[1][enabled]" value="1" <?php checked(!empty($buy_get_rule['enabled'])); ?>>
-                                <?php esc_html_e('Enable buy X, get Y free', 'dynamic-pricing-rules'); ?>
-                            </label>
-                        </p>
-                        <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[1][id]" value="<?php echo esc_attr($buy_get_rule['id']); ?>">
-                        <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[1][type]" value="buy_x_get_y">
-
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="dpr_buy_get_label"><?php esc_html_e('Offer label', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><input type="text" class="regular-text" id="dpr_buy_get_label" name="<?php echo esc_attr(self::OPTION_RULES); ?>[1][label]" value="<?php echo esc_attr($buy_get_rule['label']); ?>"></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="dpr_buy_get_display_title"><?php esc_html_e('Checkout label', 'dynamic-pricing-rules'); ?></label></th>
-                                <td>
-                                    <input type="text" class="regular-text" id="dpr_buy_get_display_title" name="<?php echo esc_attr(self::OPTION_RULES); ?>[1][display_title]" value="<?php echo esc_attr($buy_get_rule['display_title']); ?>">
-                                    <p class="dpr-field-note"><?php esc_html_e('Reserved for cart item display if this offer is shown beside products.', 'dynamic-pricing-rules'); ?></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="dpr_buy_quantity"><?php esc_html_e('Offer', 'dynamic-pricing-rules'); ?></label></th>
-                                <td>
-                                    <?php esc_html_e('Buy', 'dynamic-pricing-rules'); ?>
-                                    <input type="number" min="1" step="1" class="small-text dpr-inline-number" id="dpr_buy_quantity" name="<?php echo esc_attr(self::OPTION_RULES); ?>[1][buy_quantity]" value="<?php echo esc_attr($buy_get_rule['buy_quantity']); ?>">
-                                    <?php esc_html_e('get', 'dynamic-pricing-rules'); ?>
-                                    <input type="number" min="1" step="1" class="small-text dpr-inline-number" name="<?php echo esc_attr(self::OPTION_RULES); ?>[1][free_quantity]" value="<?php echo esc_attr($buy_get_rule['free_quantity']); ?>">
-                                    <?php esc_html_e('free', 'dynamic-pricing-rules'); ?>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="dpr_buy_get_scope"><?php esc_html_e('Apply to', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><?php $this->render_scope_select('dpr_buy_get_scope', self::OPTION_RULES . '[1][scope]', $buy_get_rule['scope']); ?></td>
-                            </tr>
-                            <tr class="dpr-scope-row" data-rule="buy-get" data-scope="product">
-                                <th scope="row"><label for="dpr_buy_get_products"><?php esc_html_e('Specific products', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><?php $this->render_product_search('dpr_buy_get_products', self::OPTION_RULES . '[1][product_ids][]', $buy_get_rule['product_ids']); ?></td>
-                            </tr>
-                            <tr class="dpr-scope-row" data-rule="buy-get" data-scope="category">
-                                <th scope="row"><label for="dpr_buy_get_categories"><?php esc_html_e('Specific categories', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><?php $this->render_category_select('dpr_buy_get_categories', self::OPTION_RULES . '[1][category_ids][]', $buy_get_rule['category_ids']); ?></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="dpr_buy_get_mode"><?php esc_html_e('Count quantity by', 'dynamic-pricing-rules'); ?></label></th>
-                                <td><?php $this->render_quantity_mode_select('dpr_buy_get_mode', self::OPTION_RULES . '[1][quantity_mode]', $buy_get_rule['quantity_mode']); ?></td>
-                            </tr>
-                        </table>
-                    </div>
+                <div class="dpr-actions">
+                    <button type="button" class="button button-secondary" id="dpr_add_rule">
+                        <?php esc_html_e('Add rule', 'dynamic-pricing-rules'); ?>
+                    </button>
                 </div>
 
                 <?php submit_button(__('Save pricing rules', 'dynamic-pricing-rules')); ?>
+
+                <script type="text/template" id="dpr_rule_template">
+                    <?php $this->render_rule_card($template_rule, '__INDEX__', true); ?>
+                </script>
             </form>
+        </div>
+        <?php
+    }
+
+    private function render_rule_card(array $rule, string $index, bool $is_template = false): void {
+        $title = 'quantity_tier' === ($rule['type'] ?? 'quantity_tier')
+            ? __('Quantity Discount', 'dynamic-pricing-rules')
+            : __('Buy X, Get Y Free', 'dynamic-pricing-rules');
+        ?>
+        <div class="dpr-card<?php echo $is_template ? ' dpr-template-card' : ''; ?>" data-rule-card>
+            <div class="dpr-card-header">
+                <h2><?php echo esc_html($title); ?></h2>
+                <button type="button" class="button-link-delete dpr-remove-rule">
+                    <?php esc_html_e('Remove rule', 'dynamic-pricing-rules'); ?>
+                </button>
+            </div>
+
+            <p class="dpr-rule-toggle">
+                <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[<?php echo esc_attr($index); ?>][enabled]" value="0">
+                <label>
+                    <input type="checkbox" name="<?php echo esc_attr(self::OPTION_RULES); ?>[<?php echo esc_attr($index); ?>][enabled]" value="1" <?php checked(!empty($rule['enabled'])); ?>>
+                    <?php esc_html_e('Enable this rule', 'dynamic-pricing-rules'); ?>
+                </label>
+            </p>
+
+            <input type="hidden" name="<?php echo esc_attr(self::OPTION_RULES); ?>[<?php echo esc_attr($index); ?>][id]" value="<?php echo esc_attr($rule['id']); ?>">
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><label for="dpr_rule_type_<?php echo esc_attr($index); ?>"><?php esc_html_e('Rule type', 'dynamic-pricing-rules'); ?></label></th>
+                    <td><?php $this->render_rule_type_select('dpr_rule_type_' . $index, self::OPTION_RULES . '[' . $index . '][type]', $rule['type']); ?></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="dpr_label_<?php echo esc_attr($index); ?>"><?php esc_html_e('Discount label', 'dynamic-pricing-rules'); ?></label></th>
+                    <td><input type="text" class="regular-text" id="dpr_label_<?php echo esc_attr($index); ?>" name="<?php echo esc_attr(self::OPTION_RULES); ?>[<?php echo esc_attr($index); ?>][label]" value="<?php echo esc_attr($rule['label']); ?>"></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="dpr_display_title_<?php echo esc_attr($index); ?>"><?php esc_html_e('Checkout label', 'dynamic-pricing-rules'); ?></label></th>
+                    <td>
+                        <input type="text" class="regular-text" id="dpr_display_title_<?php echo esc_attr($index); ?>" name="<?php echo esc_attr(self::OPTION_RULES); ?>[<?php echo esc_attr($index); ?>][display_title]" value="<?php echo esc_attr($rule['display_title']); ?>">
+                        <p class="dpr-field-note"><?php esc_html_e('This is the text before the colon at cart and checkout, for example Discount.', 'dynamic-pricing-rules'); ?></p>
+                    </td>
+                </tr>
+                <tr class="dpr-type-section" data-type="buy_x_get_y">
+                    <th scope="row"><label for="dpr_buy_quantity_<?php echo esc_attr($index); ?>"><?php esc_html_e('Offer', 'dynamic-pricing-rules'); ?></label></th>
+                    <td>
+                        <?php esc_html_e('Buy', 'dynamic-pricing-rules'); ?>
+                        <input type="number" min="1" step="1" class="small-text dpr-inline-number" id="dpr_buy_quantity_<?php echo esc_attr($index); ?>" name="<?php echo esc_attr(self::OPTION_RULES); ?>[<?php echo esc_attr($index); ?>][buy_quantity]" value="<?php echo esc_attr($rule['buy_quantity'] ?? 2); ?>">
+                        <?php esc_html_e('get', 'dynamic-pricing-rules'); ?>
+                        <input type="number" min="1" step="1" class="small-text dpr-inline-number" name="<?php echo esc_attr(self::OPTION_RULES); ?>[<?php echo esc_attr($index); ?>][free_quantity]" value="<?php echo esc_attr($rule['free_quantity'] ?? 1); ?>">
+                        <?php esc_html_e('free', 'dynamic-pricing-rules'); ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="dpr_scope_<?php echo esc_attr($index); ?>"><?php esc_html_e('Apply to', 'dynamic-pricing-rules'); ?></label></th>
+                    <td>
+                        <?php $this->render_scope_select('dpr_scope_' . $index, self::OPTION_RULES . '[' . $index . '][scope]', $rule['scope']); ?>
+                        <p class="dpr-field-note"><?php esc_html_e('Use Specific products to set a rule for one product or a selected product group.', 'dynamic-pricing-rules'); ?></p>
+                    </td>
+                </tr>
+                <tr class="dpr-scope-row" data-scope="product">
+                    <th scope="row"><label for="dpr_products_<?php echo esc_attr($index); ?>"><?php esc_html_e('Specific products', 'dynamic-pricing-rules'); ?></label></th>
+                    <td><?php $this->render_product_search('dpr_products_' . $index, self::OPTION_RULES . '[' . $index . '][product_ids][]', $rule['product_ids']); ?></td>
+                </tr>
+                <tr class="dpr-scope-row" data-scope="category">
+                    <th scope="row"><label for="dpr_categories_<?php echo esc_attr($index); ?>"><?php esc_html_e('Specific categories', 'dynamic-pricing-rules'); ?></label></th>
+                    <td><?php $this->render_category_select('dpr_categories_' . $index, self::OPTION_RULES . '[' . $index . '][category_ids][]', $rule['category_ids']); ?></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="dpr_quantity_mode_<?php echo esc_attr($index); ?>"><?php esc_html_e('Count quantity by', 'dynamic-pricing-rules'); ?></label></th>
+                    <td><?php $this->render_quantity_mode_select('dpr_quantity_mode_' . $index, self::OPTION_RULES . '[' . $index . '][quantity_mode]', $rule['quantity_mode']); ?></td>
+                </tr>
+                <tr class="dpr-type-section" data-type="quantity_tier">
+                    <th scope="row"><?php esc_html_e('Discount tiers', 'dynamic-pricing-rules'); ?></th>
+                    <td>
+                        <?php $this->render_tiers_table(self::OPTION_RULES . '[' . $index . '][tiers]', $rule['tiers'] ?? []); ?>
+                        <p class="dpr-field-note"><?php esc_html_e('Leave Max empty for open-ended tiers like 6+ items.', 'dynamic-pricing-rules'); ?></p>
+                    </td>
+                </tr>
+            </table>
         </div>
         <?php
     }
@@ -275,6 +304,26 @@ JS;
         return null;
     }
 
+    private function render_rule_type_select(string $id, string $name, string $selected): void {
+        $options = [
+            'quantity_tier' => __('Quantity discount', 'dynamic-pricing-rules'),
+            'buy_x_get_y' => __('Buy X, get Y free', 'dynamic-pricing-rules'),
+        ];
+
+        printf('<select id="%s" class="dpr-rule-type" name="%s">', esc_attr($id), esc_attr($name));
+
+        foreach ($options as $value => $label) {
+            printf(
+                '<option value="%s" %s>%s</option>',
+                esc_attr($value),
+                selected($selected, $value, false),
+                esc_html($label)
+            );
+        }
+
+        echo '</select>';
+    }
+
     private function render_scope_select(string $id, string $name, string $selected): void {
         $options = [
             'all' => __('All products', 'dynamic-pricing-rules'),
@@ -282,7 +331,7 @@ JS;
             'category' => __('Specific categories', 'dynamic-pricing-rules'),
         ];
 
-        printf('<select id="%s" name="%s">', esc_attr($id), esc_attr($name));
+        printf('<select id="%s" class="dpr-rule-scope" name="%s">', esc_attr($id), esc_attr($name));
 
         foreach ($options as $value => $label) {
             printf(
