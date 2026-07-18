@@ -989,7 +989,7 @@ JS;
         return [
             [
                 'id' => 'default-quantity-tiers',
-                'enabled' => true,
+                'enabled' => false,
                 'type' => 'quantity_tier',
                 'label' => __('Quantity discount', 'dynamic-pricing-rules'),
                 'display_title' => __('Discount', 'dynamic-pricing-rules'),
