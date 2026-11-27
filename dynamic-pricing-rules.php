@@ -2,7 +2,8 @@
 /**
  * Plugin Name: Store Dynamic Pricing
  * Description: Adds WooCommerce quantity tiers, product/category bulk discounts, and buy X get Y offers.
- * Version: 0.1.1
+ * Version: 0.1.2b1
+ * Requires PHP: 7.4
  * Author: Jv Secate
  * Text Domain: dynamic-pricing-rules
  * Domain Path: /languages
@@ -15,10 +16,18 @@ defined('ABSPATH') || exit;
 
 final class Store_Dynamic_Pricing {
     private const OPTION_RULES = 'store_dynamic_pricing_rules';
-    private const BASE_PRICE = '_store_dynamic_pricing_base_price';
-    private const PRICE_WAS_CHANGED = '_store_dynamic_pricing_price_was_changed';
+    private const LEGACY_BASE_PRICE = '_store_dynamic_pricing_base_price';
+    private const LEGACY_PRICE_WAS_CHANGED = '_store_dynamic_pricing_price_was_changed';
     private const APPLIED_LABEL = '_store_dynamic_pricing_applied_label';
     private const APPLIED_DISPLAY_TITLE = '_store_dynamic_pricing_applied_display_title';
+
+    /**
+     * Original prices of cart products changed in this request, keyed by object id.
+     * Kept in memory only, so a stale price is never persisted to the cart session.
+     *
+     * @var array<int, array{product: WC_Product, base: float, applied: float}>
+     */
+    private array $price_state = [];
 
     public static function activate(): void {
         self::load_textdomain();
@@ -44,6 +53,7 @@ final class Store_Dynamic_Pricing {
     private function hooks(): void {
         add_action('admin_menu', [$this, 'add_settings_page']);
         add_action('admin_init', [$this, 'register_settings']);
+        add_filter('option_page_capability_store_dynamic_pricing', [$this, 'settings_capability']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'settings_link']);
 
@@ -78,6 +88,10 @@ final class Store_Dynamic_Pricing {
                 'default' => self::default_rules(),
             ]
         );
+    }
+
+    public function settings_capability(): string {
+        return 'manage_woocommerce';
     }
 
     public function settings_link(array $links): array {
@@ -180,6 +194,8 @@ JS;
                 ],
             ]
         );
+        // normalize_rule() lowercases the id, so set the JS placeholder after it.
+        $template_rule['id'] = 'rule-__INDEX__';
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Dynamic Pricing', 'dynamic-pricing-rules'); ?></h1>
@@ -292,16 +308,6 @@ JS;
             </table>
         </div>
         <?php
-    }
-
-    private function first_rule_by_type(array $rules, string $type): ?array {
-        foreach ($rules as $rule) {
-            if (($rule['type'] ?? '') === $type) {
-                return $rule;
-            }
-        }
-
-        return null;
     }
 
     private function render_rule_type_select(string $id, string $name, string $selected): void {
@@ -527,21 +533,23 @@ JS;
 
         $rules = $this->get_enabled_rules('quantity_tier');
 
-        if (!$rules) {
-            $this->restore_cart_base_prices($cart);
-            return;
-        }
-
-        $this->restore_cart_base_prices($cart);
-
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-            if (empty($cart_item['data']) || !is_object($cart_item['data'])) {
+            unset(
+                $cart->cart_contents[$cart_item_key][self::LEGACY_BASE_PRICE],
+                $cart->cart_contents[$cart_item_key][self::LEGACY_PRICE_WAS_CHANGED],
+                $cart->cart_contents[$cart_item_key][self::APPLIED_LABEL],
+                $cart->cart_contents[$cart_item_key][self::APPLIED_DISPLAY_TITLE]
+            );
+
+            $product = $cart_item['data'] ?? null;
+
+            if (!$product instanceof WC_Product) {
                 continue;
             }
 
-            $base_price = $this->get_cart_item_base_price($cart, $cart_item_key, $cart_item);
+            $base_price = $this->get_base_price($product);
             $best_price = $base_price;
-            $best_label = '';
+            $best_rule = null;
 
             foreach ($rules as $rule) {
                 if (!$this->rule_matches_cart_item($rule, $cart_item)) {
@@ -559,20 +567,18 @@ JS;
 
                 if ($candidate_price < $best_price) {
                     $best_price = $candidate_price;
-                    $best_label = $rule['label'];
+                    $best_rule = $rule;
                 }
             }
 
-            if ($best_price < $base_price) {
-                $cart->cart_contents[$cart_item_key]['data']->set_price($best_price);
-                $cart->cart_contents[$cart_item_key][self::PRICE_WAS_CHANGED] = true;
-                $cart->cart_contents[$cart_item_key][self::APPLIED_LABEL] = $best_label;
-                $cart->cart_contents[$cart_item_key][self::APPLIED_DISPLAY_TITLE] = $this->rule_display_title_by_label($rules, $best_label);
-            } else {
-                unset($cart->cart_contents[$cart_item_key][self::APPLIED_LABEL]);
-                unset($cart->cart_contents[$cart_item_key][self::APPLIED_DISPLAY_TITLE]);
-                $cart->cart_contents[$cart_item_key][self::PRICE_WAS_CHANGED] = false;
+            if (null === $best_rule) {
+                $this->restore_base_price($product);
+                continue;
             }
+
+            $this->set_discounted_price($product, $base_price, $best_price);
+            $cart->cart_contents[$cart_item_key][self::APPLIED_LABEL] = $best_rule['label'];
+            $cart->cart_contents[$cart_item_key][self::APPLIED_DISPLAY_TITLE] = $best_rule['display_title'];
         }
     }
 
@@ -585,7 +591,7 @@ JS;
             return;
         }
 
-        foreach ($this->get_enabled_rules('buy_x_get_y') as $rule) {
+        foreach ($this->get_enabled_rules('buy_x_get_y') as $rule_index => $rule) {
             $grouped_unit_prices = [];
 
             foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
@@ -596,11 +602,11 @@ JS;
                 $quantity = isset($cart_item['quantity']) ? (int) $cart_item['quantity'] : 0;
                 $product = $cart_item['data'] ?? null;
 
-                if (!$quantity || !$product || !is_object($product)) {
+                if (!$quantity || !$product instanceof WC_Product) {
                     continue;
                 }
 
-                $unit_price = (float) $product->get_price();
+                $unit_price = $this->get_fee_unit_price($product);
                 $group_key = $this->buy_x_get_y_group_key($rule, $cart_item_key, $cart_item);
 
                 if (!isset($grouped_unit_prices[$group_key])) {
@@ -633,7 +639,15 @@ JS;
             }
 
             if ($discount > 0) {
-                $cart->add_fee($rule['label'], -1 * $discount, false);
+                // A unique id keeps rules with the same label from being dropped as duplicates.
+                $cart->fees_api()->add_fee(
+                    [
+                        'id' => 'dpr-' . $rule_index . '-' . $rule['id'],
+                        'name' => $rule['label'],
+                        'amount' => -1 * $discount,
+                        'taxable' => false,
+                    ]
+                );
             }
         }
     }
@@ -654,16 +668,6 @@ JS;
         return $item_data;
     }
 
-    private function rule_display_title_by_label(array $rules, string $label): string {
-        foreach ($rules as $rule) {
-            if (($rule['label'] ?? '') === $label) {
-                return $rule['display_title'] ?? __('Discount', 'dynamic-pricing-rules');
-            }
-        }
-
-        return __('Discount', 'dynamic-pricing-rules');
-    }
-
     public function woocommerce_missing_notice(): void {
         if (!current_user_can('activate_plugins')) {
             return;
@@ -682,32 +686,55 @@ JS;
         return class_exists('WooCommerce') && function_exists('WC');
     }
 
-    private function restore_cart_base_prices($cart): void {
-        foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-            if (
-                empty($cart_item[self::PRICE_WAS_CHANGED])
-                || !isset($cart_item[self::BASE_PRICE])
-                || empty($cart_item['data'])
-                || !is_object($cart_item['data'])
-            ) {
-                continue;
+    private function get_base_price(WC_Product $product): float {
+        $key = spl_object_id($product);
+        $current = (float) $product->get_price('edit');
+
+        if (isset($this->price_state[$key])) {
+            $state = $this->price_state[$key];
+
+            // Only trust the stored base while the price is still the one this plugin set.
+            if ($state['product'] === $product && $current === $state['applied']) {
+                return $state['base'];
             }
 
-            $cart->cart_contents[$cart_item_key]['data']->set_price((float) $cart_item[self::BASE_PRICE]);
-            $cart->cart_contents[$cart_item_key][self::PRICE_WAS_CHANGED] = false;
+            unset($this->price_state[$key]);
         }
+
+        return max(0.0, $current);
     }
 
-    private function get_cart_item_base_price($cart, string $cart_item_key, array $cart_item): float {
-        if (!empty($cart_item[self::PRICE_WAS_CHANGED]) && isset($cart_item[self::BASE_PRICE])) {
-            return (float) $cart_item[self::BASE_PRICE];
+    private function set_discounted_price(WC_Product $product, float $base_price, float $price): void {
+        $product->set_price($price);
+
+        $this->price_state[spl_object_id($product)] = [
+            'product' => $product,
+            'base' => $base_price,
+            'applied' => (float) $product->get_price('edit'),
+        ];
+    }
+
+    private function restore_base_price(WC_Product $product): void {
+        $key = spl_object_id($product);
+
+        if (!isset($this->price_state[$key])) {
+            return;
         }
 
-        $product = $cart_item['data'];
-        $base_price = (float) $product->get_price('edit');
-        $cart->cart_contents[$cart_item_key][self::BASE_PRICE] = max(0, $base_price);
+        $product->set_price($this->price_state[$key]['base']);
+        unset($this->price_state[$key]);
+    }
 
-        return max(0, $base_price);
+    /**
+     * WooCommerce treats negative fees as tax exclusive and spreads their tax across the cart,
+     * so the free item value must be the price without tax when taxes are enabled.
+     */
+    private function get_fee_unit_price(WC_Product $product): float {
+        if (wc_tax_enabled()) {
+            return (float) wc_get_price_excluding_tax($product);
+        }
+
+        return (float) $product->get_price();
     }
 
     private function get_enabled_rules(string $type): array {
@@ -1036,5 +1063,13 @@ JS;
 }
 
 register_activation_hook(__FILE__, ['Store_Dynamic_Pricing', 'activate']);
+add_action(
+    'before_woocommerce_init',
+    static function (): void {
+        if (class_exists(\Automattic\WooCommerce\Utilities\FeaturesUtil::class)) {
+            \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+        }
+    }
+);
 add_action('plugins_loaded', ['Store_Dynamic_Pricing', 'load_textdomain'], 0);
 add_action('plugins_loaded', ['Store_Dynamic_Pricing', 'init'], 20);

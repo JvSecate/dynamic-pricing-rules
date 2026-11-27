@@ -13,7 +13,7 @@ Custom WooCommerce dynamic pricing plugin for quantity discounts, product/catego
 
 ## Default rules
 
-The plugin starts with one enabled rule:
+The plugin ships with two saved rules, both disabled. A quantity tier rule:
 
 | Quantity | Discount |
 |---|---|
@@ -21,7 +21,7 @@ The plugin starts with one enabled rule:
 | 4-5 items | 10% off |
 | 6+ items | 15% off |
 
-It also includes a saved but disabled `Buy 2, get 1 free` rule. Enable it from WooCommerce -> Dynamic Pricing when that promotion should run.
+And a `Buy 2, get 1 free` rule. Enable either one from WooCommerce -> Dynamic Pricing when that promotion should run.
 
 ## Admin setup
 
